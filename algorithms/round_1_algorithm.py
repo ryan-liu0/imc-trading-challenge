@@ -1,5 +1,6 @@
 from datamodel import OrderDepth, UserId, TradingState, Order, Trade
 from typing import List
+import math
 import string
 import numpy as np
 from collections import defaultdict
@@ -28,9 +29,10 @@ class Trader:
             # my_orders = state.own_trades[product_name]
             # other_orders = state.market_trades[product_name]
             
+            # Note: Sell amount is negative
             sell_price, sell_amount = list(order_book.sell_orders.items())[0]
             buy_price, buy_amount = list(order_book.buy_orders.items())[0]
-            mid_price = sell_price - buy_price
+            mid_price = (sell_price + buy_price) / 2
             print(f'Mid Price: {mid_price}')
             
             if len(self.historical_data[product_name]) > 1:
@@ -55,13 +57,17 @@ class Trader:
                     z_score = (mid_price - mean) / std
                     
                     # Place order with max amount at mid_price
-                    if z_score > 1:
-                        orders.append(Order(product_name, mid_price, -max_sell))
+                    if z_score > 2 and my_position == 0:
+                        orders.append(Order(product_name, int(math.floor(mid_price)), -max_sell))
                         print(f'SELL {max_sell} at {mid_price}')
-                    elif z_score < -1:
-                        orders.append(Order(product_name, mid_price, max_buy))
+                    elif z_score < -2 and my_position == 0:
+                        orders.append(Order(product_name, int(math.ceil(mid_price)), max_buy))
                         print(f'BUY {max_buy} at {mid_price}')
         
+                    if abs(z_score) < 1 and my_position != 0:
+                        orders.append(Order(product_name, int(mid_price), -my_position))
+                        print(f'TRADE {-my_position} at {mid_price}')
+
                 self.historical_data[product_name].append(mid_price)
                 
             elif product_name == '':

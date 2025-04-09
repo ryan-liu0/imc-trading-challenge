@@ -33,6 +33,7 @@ class Trader:
                     orders.append(Order(product, best_bid, -best_bid_amount))
             
             result[product] = orders
+            print(orders)
     
     
         traderData = "SAMPLE" # String value holding Trader state data required. It will be delivered as TradingState.traderData on next execution.
