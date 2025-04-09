@@ -63,10 +63,10 @@ class Trader:
         
                     if z_buy > -z_neutral_cutoff and my_position > 0:
                         orders.append(Order(product_name, int(buy_price), -my_position))
-                        print(f'TRADE {-my_position} at {buy_price}')
+                        print(f'SELL {-my_position} at {buy_price}')
                     elif z_sell < z_neutral_cutoff and my_position < 0:
                         orders.append(Order(product_name, int(sell_price), -my_position))
-                    
+                        print(f'BUY {-my_position} at {sell_price}')
 
                 self.historical_data[product_name].append(mid_price)
                 
