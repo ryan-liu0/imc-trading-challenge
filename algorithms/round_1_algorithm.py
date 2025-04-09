@@ -8,7 +8,6 @@ from collections import defaultdict
 class Trader:
     def __init__(self):
         self.historical_data = defaultdict(list)
-        self.pnl_data = defaultdict(list)
     
     def run(self, state: TradingState):
         result = {}
@@ -35,38 +34,39 @@ class Trader:
             mid_price = (sell_price + buy_price) / 2
             print(f'Mid Price: {mid_price}')
             
-            if len(self.historical_data[product_name]) > 1:
-                daily_pnl = my_position * (mid_price - self.historical_data[product_name][-1])
-                print(f'{product_name} daily pnl: {round(daily_pnl, 2)}')
-                self.pnl_data[product_name].append(daily_pnl)
-                cumm_pnl = sum(self.pnl_data[product_name])
-                print(f'{product_name} cumm pnl: {round(cumm_pnl, 2)}')
-            
             if product_name == "RAINFOREST_RESIN":
                 '''
                 Logic for RAINFOREST_RESIN
                 '''
                 lookback = 20 # How far back to calculate mean/std
                 order_limit = 10 # Max number of shares to buy/sell per trade
-                max_buy = min(order_limit, abs(50 - my_position))
-                max_sell = min(order_limit, abs(my_position + 50))
+                max_buy = min(-sell_amount, abs(50 - my_position))
+                max_sell = min(buy_amount, abs(my_position + 50))
                 
                 if len(self.historical_data[product_name]) > lookback:
                     std = np.std(self.historical_data[product_name][-lookback:])
                     mean = np.mean(self.historical_data[product_name][-lookback:])
-                    z_score = (mid_price - mean) / std
+                    z_buy = (buy_price - mean) / std
+                    z_sell = (sell_price - mean) / std
+                    z_score = (mid_price - mean ) / std
                     
-                    # Place order with max amount at mid_price
-                    if z_score > 2 and my_position == 0:
-                        orders.append(Order(product_name, int(math.floor(mid_price)), -max_sell))
-                        print(f'SELL {max_sell} at {mid_price}')
-                    elif z_score < -2 and my_position == 0:
-                        orders.append(Order(product_name, int(math.ceil(mid_price)), max_buy))
-                        print(f'BUY {max_buy} at {mid_price}')
+                    z_position_cutoff = 1
+                    z_neutral_cutoff = 0
+                    
+                    # Place order, if buyers above then sell, if sellers above then buy
+                    if z_buy > z_position_cutoff and my_position == 0:
+                        orders.append(Order(product_name, int(buy_price), -max_sell))
+                        print(f'SELL {max_sell} at {z_buy}')
+                    elif z_sell < -z_position_cutoff and my_position == 0:
+                        orders.append(Order(product_name, int(sell_price), max_buy))
+                        print(f'BUY {max_buy} at {z_sell}')
         
-                    if abs(z_score) < 1 and my_position != 0:
-                        orders.append(Order(product_name, int(mid_price), -my_position))
-                        print(f'TRADE {-my_position} at {mid_price}')
+                    if z_buy > -z_neutral_cutoff and my_position > 0:
+                        orders.append(Order(product_name, int(buy_price), -my_position))
+                        print(f'TRADE {-my_position} at {buy_price}')
+                    elif z_sell < z_neutral_cutoff and my_position < 0:
+                        orders.append(Order(product_name, int(sell_price), -my_position))
+                    
 
                 self.historical_data[product_name].append(mid_price)
                 
