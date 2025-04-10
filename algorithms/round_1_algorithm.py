@@ -70,15 +70,50 @@ class Trader:
 
                 self.historical_data[product_name].append(mid_price)
                 
-            elif product_name == '':
-                '''
-                LOGIC FOR
-                '''
+            elif product_name == "KELP":
+                # Momentum Strategy
+                lookback = 20
+                threshold = 0.5  # Strength of trend to trigger trade
+                order_limit = 10
+
+                self.historical_data[product_name].append(mid_price)
                 
-            elif product_name == '':
-                '''
-                LOGIC FOR 
-                '''
+                if len(self.historical_data[product_name]) > lookback:
+                    momentum = mid_price - self.historical_data[product_name][-lookback]
+
+                    if momentum > threshold and my_position < 50:
+                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
+                        if buy_qty > 0:
+                            orders.append(Order(product_name, sell_price, buy_qty))
+
+                    elif momentum < -threshold and my_position > -50:
+                        sell_qty = min(order_limit, my_position + 50, buy_amount)
+                        if sell_qty > 0:
+                            orders.append(Order(product_name, buy_price, -sell_qty))
+
+            elif product_name == "SQUID_INK":
+                # Volatility Breakout Strategy
+                lookback = 30
+                std_multiplier = 2
+                order_limit = 10
+
+                self.historical_data[product_name].append(mid_price)
+
+                if len(self.historical_data[product_name]) > lookback:
+                    mean = np.mean(self.historical_data[product_name][-lookback:])
+                    std = np.std(self.historical_data[product_name][-lookback:])
+                    upper_band = mean + std_multiplier * std
+                    lower_band = mean - std_multiplier * std
+
+                    if mid_price > upper_band and my_position < 50:
+                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
+                        if buy_qty > 0:
+                            orders.append(Order(product_name, sell_price, buy_qty))
+
+                    elif mid_price < lower_band and my_position > -50:
+                        sell_qty = min(order_limit, my_position + 50, buy_amount)
+                        if sell_qty > 0:
+                            orders.append(Order(product_name, buy_price, -sell_qty))
             
                 
             result[product_name] = orders # put all the orders together
