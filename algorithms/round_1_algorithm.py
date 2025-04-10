@@ -3,6 +3,7 @@ from typing import List
 import math
 import string
 import numpy as np
+import pandas as pd
 from collections import defaultdict
 
 class Trader:
@@ -71,28 +72,29 @@ class Trader:
                 self.historical_data[product_name].append(mid_price)
                 
             elif product_name == "KELP":
-                # Momentum Strategy
-                lookback = 20
-                threshold = 0.5  # Strength of trend to trigger trade
-                order_limit = 10
+                # INVERTED Momentum: Fading trends (anti-momentum)
+                order_limit = 100
 
                 self.historical_data[product_name].append(mid_price)
                 
-                if len(self.historical_data[product_name]) > lookback:
-                    momentum = mid_price - self.historical_data[product_name][-lookback]
-
-                    if momentum > threshold and my_position < 50:
-                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
-                        if buy_qty > 0:
-                            orders.append(Order(product_name, sell_price, buy_qty))
-
-                    elif momentum < -threshold and my_position > -50:
+                if len(self.historical_data[product_name]) > 1:
+                    data_series = pd.Series(self.historical_data[product_name])
+                    recent_momentum = data_series.ewm(span=9, adjust=False).mean()
+                    long_momentum = data_series.ewm(span=23, adjust=False).mean()
+                    
+                    # If price is rising, short it; if price is dropping, buy it
+                    if recent_momentum > long_momentum and my_position > -50:
                         sell_qty = min(order_limit, my_position + 50, buy_amount)
                         if sell_qty > 0:
                             orders.append(Order(product_name, buy_price, -sell_qty))
 
+                    elif recent_momentum < long_momentum and my_position < 50:
+                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
+                        if buy_qty > 0:
+                            orders.append(Order(product_name, sell_price, buy_qty))
+
             elif product_name == "SQUID_INK":
-                # Volatility Breakout Strategy
+                # INVERTED Volatility Breakout: Fade the spike/drop
                 lookback = 30
                 std_multiplier = 2
                 order_limit = 10
@@ -105,15 +107,16 @@ class Trader:
                     upper_band = mean + std_multiplier * std
                     lower_band = mean - std_multiplier * std
 
-                    if mid_price > upper_band and my_position < 50:
-                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
-                        if buy_qty > 0:
-                            orders.append(Order(product_name, sell_price, buy_qty))
-
-                    elif mid_price < lower_band and my_position > -50:
+                    # Invert: if price spikes, short it; if it crashes, buy it
+                    if mid_price > upper_band and my_position > -50:
                         sell_qty = min(order_limit, my_position + 50, buy_amount)
                         if sell_qty > 0:
                             orders.append(Order(product_name, buy_price, -sell_qty))
+
+                    elif mid_price < lower_band and my_position < 50:
+                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
+                        if buy_qty > 0:
+                            orders.append(Order(product_name, sell_price, buy_qty))
             
                 
             result[product_name] = orders # put all the orders together
