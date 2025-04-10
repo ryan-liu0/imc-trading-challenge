@@ -51,7 +51,7 @@ class Trader:
                     z_sell = (sell_price - mean) / std
                     z_score = (mid_price - mean ) / std
                     
-                    z_position_cutoff = 1
+                    z_position_cutoff = 0.5
                     z_neutral_cutoff = 0
                     
                     # Place order, if buyers above then sell, if sellers above then buy
@@ -72,27 +72,35 @@ class Trader:
                 self.historical_data[product_name].append(mid_price)
                 
             elif product_name == "KELP":
-                # INVERTED Momentum: Fading trends (anti-momentum)
-                order_limit = 100
+                # Calculate mid-price
+                best_bid = max(order_book.buy_orders.keys()) if order_book.buy_orders else None
+                best_ask = min(order_book.sell_orders.keys()) if order_book.sell_orders else None
+                max_buy = min(-sell_amount, abs(50 - my_position))
+                max_sell = min(buy_amount, abs(my_position + 50))
 
-                self.historical_data[product_name].append(mid_price)
-                
-                if len(self.historical_data[product_name]) > 1:
-                    data_series = pd.Series(self.historical_data[product_name])
-                    recent_momentum = data_series.ewm(span=9, adjust=False).mean().iloc[-1]
-                    long_momentum = data_series.ewm(span=23, adjust=False).mean().iloc[-1]
+                if best_bid is not None and best_ask is not None:
+                    mid_price = (best_bid + best_ask) / 2
+                    self.historical_data[product_name].append(mid_price)
+
+                    if len(self.historical_data[product_name]) >= 22:
+                        prices = pd.Series(self.historical_data[product_name])
+                        ema9 = prices.ewm(span=9, adjust=False).mean()
+                        ema22 = prices.ewm(span=22, adjust=False).mean()
+
+                        if ema9.iloc[-1] < ema22.iloc[-1] and my_position < 0:
+                            orders.append(Order(product_name, int(buy_price), my_position))
+                        elif ema9.iloc[-1] > ema22.iloc[-1] and my_position > 0:
+                            orders.append(Order(product_name, int(sell_price), -my_position))
+                        elif ema9.iloc[-1] < ema22.iloc[-1] and my_position == 0:
+                            orders.append(Order(product_name, int(buy_price), max_buy))
+                        elif ema9.iloc[-1] > ema22.iloc[-1] and my_position == 0:
+                            orders.append(Order(product_name, int(sell_price), -max_sell))
+
+                        
+
+                            
                     
-                    # If price is rising, short it; if price is dropping, buy it
-                    if recent_momentum > long_momentum and my_position > -50:
-                        sell_qty = min(order_limit, my_position + 50, buy_amount)
-                        if sell_qty > 0:
-                            orders.append(Order(product_name, buy_price, -sell_qty))
-
-                    elif recent_momentum < long_momentum and my_position < 50:
-                        buy_qty = min(order_limit, 50 - my_position, -sell_amount)
-                        if buy_qty > 0:
-                            orders.append(Order(product_name, sell_price, buy_qty))
-
+            '''
             elif product_name == "SQUID_INK":
                 # INVERTED Volatility Breakout: Fade the spike/drop
                 lookback = 30
@@ -118,7 +126,7 @@ class Trader:
                         if buy_qty > 0:
                             orders.append(Order(product_name, sell_price, buy_qty))
             
-                
+                '''
             result[product_name] = orders # put all the orders together
         
         traderData = state.traderData # String value holding Trader state data required. It will be delivered as TradingState.traderData on next execution.
