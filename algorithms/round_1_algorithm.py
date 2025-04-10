@@ -79,8 +79,8 @@ class Trader:
                 
                 if len(self.historical_data[product_name]) > 1:
                     data_series = pd.Series(self.historical_data[product_name])
-                    recent_momentum = data_series.ewm(span=9, adjust=False).mean()
-                    long_momentum = data_series.ewm(span=23, adjust=False).mean()
+                    recent_momentum = data_series.ewm(span=9, adjust=False).mean().iloc[-1]
+                    long_momentum = data_series.ewm(span=23, adjust=False).mean().iloc[-1]
                     
                     # If price is rising, short it; if price is dropping, buy it
                     if recent_momentum > long_momentum and my_position > -50:
